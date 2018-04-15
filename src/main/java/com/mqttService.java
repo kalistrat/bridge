@@ -14,7 +14,7 @@ import java.security.cert.CertificateException;
  */
 public class mqttService implements MqttCallback {
 
-    MqttClient client;
+    MqttClient readClient;
     String serverLogin;
     String serverPassword;
     String mqttServerHost;
@@ -24,7 +24,7 @@ public class mqttService implements MqttCallback {
 
         try{
 
-            client = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
+            readClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
 
             MqttConnectOptions options = new MqttConnectOptions();
             options.setUserName(serverLogin);
@@ -37,9 +37,9 @@ public class mqttService implements MqttCallback {
 
             options.setConnectionTimeout(0);
 
-            client.connect(options);
-            client.setCallback(this);
-            client.subscribe(readTopicName);
+            readClient.connect(options);
+            readClient.setCallback(this);
+            readClient.subscribe(readTopicName);
 
         } catch (MqttException e1) {
             //System.out.println("MqttException in ConditionVariable");
