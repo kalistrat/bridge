@@ -1,10 +1,16 @@
 package com;
 
+import java.io.FileInputStream;
 import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
 
 public class Main {
 
     public static String AbsPath;
+    public static Properties prop;
 
     public static void main(String[] args) {
 
@@ -18,14 +24,27 @@ public class Main {
             String decodedPath = URLDecoder.decode(path, "UTF-8");
 
             AbsPath = decodedPath
-                    .replace("bridge-1.0.jar", "")
-                    .replace("target/classes/", "");
+                    .replace("bridge-1.0.jar", "");
+                    //.replace("target/classes/", "");
+
+            prop = new Properties();
+
+
 
 
             System.out.println("AbsPath : " + AbsPath);
+            //System.out.println("config.properties : " + AbsPath + "config.properties");
+            FileInputStream input = new FileInputStream(AbsPath + "config.properties");
+            prop.load(input);
 
+//            System.out.println("APP_MODE : "+prop.getProperty("APP_MODE"));
+//            System.out.println("MQTT_HOST :" + prop.getProperty("MQTT_HOST"));
+//            System.out.println("MQTT_LOGIN :" + prop.getProperty("MQTT_LOGIN"));
+//            System.out.println("MQT_LOGIN :" + prop.getProperty("MQT_LOGIN"));
+//            System.out.println("UART_PORT :" + prop.getProperty("UART_PORT"));
 
-            uartService eS = new uartService();
+            UARTService eS = new UARTService();
+            MQTTService mS = new MQTTService(eS);
 
         } catch(Exception e) {
             e.printStackTrace();

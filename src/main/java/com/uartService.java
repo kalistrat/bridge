@@ -7,18 +7,20 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by kalistrat on 12.04.2018.
  */
-public class uartService {
+public class UARTService implements UARTListenable {
     ScheduledExecutorService ses;
     int taskInterval = 2;
+    UARTListener uartListener;
 
-    public uartService(){
+    public UARTService(){
 
         try {
             ses =
                     Executors.newScheduledThreadPool(1);
             Runnable pinger = new Runnable() {
                 public void run() {
-                    System.out.println("123");
+                    //System.out.println("123");
+                    uartListener.uartMessageReceive("SEN-R0LS9VWSC2EN:123");
                 }
             };
 
@@ -27,5 +29,9 @@ public class uartService {
         } catch (Exception e){
             e.printStackTrace();
         }
+    }
+
+    public void addUARTListener(UARTListener listener){
+        this.uartListener = listener;
     }
 }
