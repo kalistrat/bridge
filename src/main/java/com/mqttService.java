@@ -1,13 +1,9 @@
 package com;
 
-import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils;
 import org.eclipse.paho.client.mqttv3.*;
 
 import javax.net.ssl.*;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
@@ -31,24 +27,23 @@ public class MQTTService implements MqttCallback {
     MqttConnectOptions mqttOptions;
     Properties topicProp;
 
-    public MQTTService(UARTService uart) throws Throwable {
+    public MQTTService(UARTService uart)  {
+        try {
 
-        uartService = uart;
-        topicProp = new Properties();
-        FileInputStream input = new FileInputStream(Main.AbsPath + "topics.properties");
-        topicProp.load(input);
-
-        try{
-
-            if (setMqttServiceProperties()){
-                startMqttSubscriber();
-                startMqttPublisher();
-            }
+            uartService = uart;
+            topicProp = new Properties();
+            FileInputStream input = new FileInputStream(Main.AbsPath + "topics.properties");
+            topicProp.load(input);
 
 
-        } catch (MqttException e1) {
-            //log
-            throw  e1;
+                if (setMqttServiceProperties()) {
+                    startMqttSubscriber();
+                    startMqttPublisher();
+                }
+
+
+        } catch (Throwable e3){
+            System.out.println("1 startMqttSubscriber");
         }
 
     }
@@ -105,9 +100,9 @@ public class MQTTService implements MqttCallback {
                     && (Main.prop.getProperty("MQTT_UID") != null)
 
                     ) {
-                serverLogin = Main.prop.getProperty("MQTT_HOST");
+                serverLogin = Main.prop.getProperty("MQTT_LOGIN");
                 serverPassword = Main.prop.getProperty("MQTT_PASSWORD");
-                mqttServerHost = Main.prop.getProperty("MQTT_LOGIN");
+                mqttServerHost = Main.prop.getProperty("MQTT_HOST");
                 readTopicName = Main.prop.getProperty("MQTT_FROM_SERVER_TOPIC");
                 mqttUID = Main.prop.getProperty("MQTT_UID");
 
@@ -131,10 +126,12 @@ public class MQTTService implements MqttCallback {
         return  mqttProprs;
     }
 
-    public void startMqttSubscriber() throws Throwable {
+    public void startMqttSubscriber() {
         try{
                 readClient = null;
                 System.gc();
+
+            System.out.println("mqttServerHost : " + mqttServerHost);
 
                 readClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
                 readClient.connect(mqttOptions);
@@ -142,48 +139,45 @@ public class MQTTService implements MqttCallback {
                 readClient.subscribe(readTopicName);
 
         } catch (MqttException e1) {
-            //log
-            throw  e1;
+            //e1.printStackTrace();
+            System.out.println("2 startMqttSubscriber");
+            //throw  e1;
         }
     }
 
-    public void startMqttPublisher() throws Throwable {
+    public void startMqttPublisher() {
         try{
 
             writeClient = null;
             System.gc();
-
+            System.out.println("writeClient start create");
             writeClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
-
-            MqttConnectOptions options = new MqttConnectOptions();
-            options.setUserName(serverLogin);
-            options.setPassword(serverPassword.toCharArray());
-
-            if (mqttServerHost.contains("ssl://")) {
-                SSLSocketFactory ssf = configureSSLSocketFactory();
-                options.setSocketFactory(ssf);
-            }
+            //ystem.out.println("writeClient done");
 
             uartService.addUARTListener(new UARTListener() {
                 @Override
-                public void uartMessageReceive(String message) {
+                public void uartMessageSent(String message) {
 
-                    try{
-                        MqttMessage mqttMessage = new MqttMessage(message.getBytes());
+//                    try{
+//                        MqttMessage mqttMessage = new MqttMessage(message.getBytes());
+//                        System.out.println("try to connect to mqtt-server");
+//                        writeClient.connect(mqttOptions);
+//                        writeClient.publish("", mqttMessage);
+//                        writeClient.disconnect();
+//                    } catch (MqttException e2) {
+//                        System.out.println("falied uartMessageSent in startMqttPublisher");
+//                    }
 
-                        writeClient.connect(mqttOptions);
-                        writeClient.publish("", mqttMessage);
-                        writeClient.disconnect();
-                    } catch (MqttException e2) {
-                        //log
-                    }
+                    System.out.println("MQTTService sent : " + message);
 
                 }
             });
 
+            System.out.println("writeClient done");
+
         } catch (MqttException e1) {
-            //log
-            throw  e1;
+            System.out.println("3 startMqttSubscriber");
+            //throw  e1;
         }
 
     }

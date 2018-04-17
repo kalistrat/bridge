@@ -19,12 +19,12 @@ public class UARTService implements UARTListenable {
                     Executors.newScheduledThreadPool(1);
             Runnable pinger = new Runnable() {
                 public void run() {
-                    //System.out.println("123");
-                    uartListener.uartMessageReceive("SEN-R0LS9VWSC2EN:123");
+                    System.out.println("123");
+                    uartListener.uartMessageSent("SEN-R0LS9VWSC2EN:123");
                 }
             };
 
-            ses.scheduleAtFixedRate(pinger, 0, taskInterval, TimeUnit.SECONDS);
+            ses.scheduleAtFixedRate(pinger, 20, taskInterval, TimeUnit.SECONDS);
 
         } catch (Exception e){
             e.printStackTrace();
