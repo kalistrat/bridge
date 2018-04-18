@@ -23,14 +23,14 @@ public class MQTTService implements MqttCallback {
     String mqttServerHost;
     String readTopicName;
     String mqttUID;
-    UARTService uartService;
+
     MqttConnectOptions mqttOptions;
     Properties topicProp;
 
-    public MQTTService(UARTService uart)  {
+    public MQTTService()  {
         try {
 
-            uartService = uart;
+
             topicProp = new Properties();
             FileInputStream input = new FileInputStream(Main.AbsPath + "topics.properties");
             topicProp.load(input);
@@ -128,20 +128,20 @@ public class MQTTService implements MqttCallback {
 
     public void startMqttSubscriber() {
         try{
-                readClient = null;
-                System.gc();
+            readClient = null;
+            System.gc();
 
             System.out.println("mqttServerHost : " + mqttServerHost);
 
-                readClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
-                readClient.connect(mqttOptions);
-                readClient.setCallback(this);
-                readClient.subscribe(readTopicName);
+            readClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
+            readClient.connect(mqttOptions);
+            readClient.setCallback(this);
+            readClient.subscribe(readTopicName);
 
         } catch (MqttException e1) {
             //e1.printStackTrace();
             System.out.println("2 startMqttSubscriber");
-            //throw  e1;
+            readClient = null;
         }
     }
 
@@ -152,34 +152,41 @@ public class MQTTService implements MqttCallback {
             System.gc();
             System.out.println("writeClient start create");
             writeClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
-            //ystem.out.println("writeClient done");
 
-            uartService.addUARTListener(new UARTListener() {
-                @Override
-                public void uartMessageSent(String message) {
-
-//                    try{
-//                        MqttMessage mqttMessage = new MqttMessage(message.getBytes());
-//                        System.out.println("try to connect to mqtt-server");
-//                        writeClient.connect(mqttOptions);
-//                        writeClient.publish("", mqttMessage);
-//                        writeClient.disconnect();
-//                    } catch (MqttException e2) {
-//                        System.out.println("falied uartMessageSent in startMqttPublisher");
-//                    }
-
-                    System.out.println("MQTTService sent : " + message);
-
-                }
-            });
+            MqttMessage mqttMessage = new MqttMessage("test_publisher".getBytes());
+            System.out.println("try to connect to mqtt-server");
+            writeClient.connect(mqttOptions);
+            writeClient.publish("TEST", mqttMessage);
+            writeClient.disconnect();
 
             System.out.println("writeClient done");
 
         } catch (MqttException e1) {
             System.out.println("3 startMqttSubscriber");
-            //throw  e1;
+            writeClient = null;
         }
 
+    }
+
+    public void publishUIDMessage(String uid,String messAge){
+        try{
+
+            Set<Object> topics = topicProp.keySet();
+            if (topics.size()>0 && topics.contains(uid)) {
+
+                MqttMessage mqttMessage = new MqttMessage(messAge.getBytes());
+                writeClient.connect(mqttOptions);
+                writeClient.publish(topicProp.getProperty(uid), mqttMessage);
+                writeClient.disconnect();
+
+            } else {
+                System.out.println("Датчик привязан, но его нет в списке.");
+            }
+
+        } catch (MqttException e1) {
+            System.out.println("mqtt server не доступен");
+            writeClient = null;
+        }
     }
 
     private void addInTopicList(String uid,String topic){

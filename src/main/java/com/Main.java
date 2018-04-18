@@ -1,6 +1,8 @@
 package com;
 
 import java.io.FileInputStream;
+import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +17,7 @@ public class Main {
     public static void main(String[] args) {
 
         try {
+            int i = 0;//counter threads
 
 
             String path = Main.class.getProtectionDomain()
@@ -43,8 +46,18 @@ public class Main {
 //            System.out.println("MQT_LOGIN :" + prop.getProperty("MQT_LOGIN"));
 //            System.out.println("UART_PORT :" + prop.getProperty("UART_PORT"));
 
-            UARTService eS = new UARTService();
-            MQTTService mS = new MQTTService(eS);
+            MQTTService mqttService = new MQTTService();
+
+            ServerSocket server = new ServerSocket(3777, 0,
+                    InetAddress.getByName("localhost"));
+
+
+            // слушаем порт
+            while(true) {
+
+                new UARTServer(i, server.accept(),mqttService);
+                i++;
+            }
 
         } catch(Exception e) {
             e.printStackTrace();
