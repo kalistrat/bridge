@@ -189,7 +189,7 @@ public class MQTTService implements MqttCallback {
         }
     }
 
-    private void addInTopicList(String uid,String topic){
+    public void addInTopicList(String uid,String topic){
         try {
             FileOutputStream output = new FileOutputStream(Main.AbsPath + "topics.properties");
             topicProp.put(uid, topic);

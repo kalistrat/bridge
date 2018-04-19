@@ -16,12 +16,14 @@ public class UARTServer extends Thread {
     Socket s;
     int num;
     MQTTService mqttService;
+    HTTPService httpService;
 
-    public UARTServer(int num, Socket s, MQTTService mService) {
+    public UARTServer(int num, Socket s, MQTTService mService,HTTPService hService) {
         // копируем данные
         this.num = num;
         this.s = s;
         this.mqttService = mService;
+        this.httpService = hService;
 
         // и запускаем новый вычислительный поток (см. ф-ю run())
         setDaemon(true);
@@ -62,7 +64,20 @@ public class UARTServer extends Thread {
             if (messPieces.size() == 1) {
                 String uid = getUIDSensor(messPieces.get(0));
                 if (uid != null) {
-                    result = "this is encription key";
+                    if (httpService.httpClient != null) {
+                        String httpResponse = httpService.linkDevice(mqttService.mqttUID+"|"+uid);
+                        if (!httpResponse.contains("ERROR")){
+                            List<String> respAttr = getListFromString(httpResponse,";");
+                            mqttService.addInTopicList(uid,getMqttAttr(respAttr,"mqttTopic"));
+                            result = "this is your encription key XXX";
+                        } else {
+                            result = "error registration sensor";
+                        }
+
+                    } else {
+                        result = "http service not available now";
+                    }
+
                 } else {
                     result = "invalid message UID";
                 }
@@ -143,6 +158,17 @@ public class UARTServer extends Thread {
             e.printStackTrace();
         }
         return UID;
+    }
+
+    private String getMqttAttr(List<String> attrs,String attrName){
+        String attrValue = null;
+        for (String si : attrs){
+            if (si.contains(attrName)){
+                attrValue = si.replace("mqttLogin","").replace(":","").replace(" ","");
+            }
+        }
+
+        return attrValue;
     }
 
 }

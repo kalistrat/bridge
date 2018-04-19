@@ -1,6 +1,12 @@
 package com;
 
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.FileInputStream;
+import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.URLDecoder;
@@ -33,8 +39,6 @@ public class Main {
             prop = new Properties();
 
 
-
-
             System.out.println("AbsPath : " + AbsPath);
             //System.out.println("config.properties : " + AbsPath + "config.properties");
             FileInputStream input = new FileInputStream(AbsPath + "config.properties");
@@ -46,6 +50,7 @@ public class Main {
 //            System.out.println("MQT_LOGIN :" + prop.getProperty("MQT_LOGIN"));
 //            System.out.println("UART_PORT :" + prop.getProperty("UART_PORT"));
 
+            HTTPService httpService = new HTTPService();
             MQTTService mqttService = new MQTTService();
 
             ServerSocket server = new ServerSocket(3777, 0,
@@ -55,7 +60,7 @@ public class Main {
             // слушаем порт
             while(true) {
 
-                new UARTServer(i, server.accept(),mqttService);
+                new UARTServer(i, server.accept(),mqttService,httpService);
                 i++;
             }
 
@@ -64,5 +69,13 @@ public class Main {
         } catch(Throwable th) {
             th.printStackTrace();
         }
+    }
+
+    public static Document loadXMLFromString(String xml) throws Exception
+    {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        InputSource is = new InputSource(new StringReader(xml));
+        return builder.parse(is);
     }
 }
