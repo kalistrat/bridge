@@ -1,8 +1,14 @@
 package com;
 
 import org.eclipse.paho.client.mqttv3.*;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import javax.net.ssl.*;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathFactory;
 import java.io.*;
 import java.security.*;
 import java.security.cert.CertificateException;
@@ -25,27 +31,99 @@ public class MQTTService implements MqttCallback {
     String mqttUID;
 
     MqttConnectOptions mqttOptions;
-    Properties topicProp;
+    List<sensorData> sensorList;
 
     public MQTTService()  {
         try {
 
 
-            topicProp = new Properties();
-            FileInputStream input = new FileInputStream(Main.AbsPath + "topics.properties");
-            topicProp.load(input);
 
-
-                if (setMqttServiceProperties()) {
-                    startMqttSubscriber();
-                    startMqttPublisher();
-                }
+            setTopicList();
+            setMqttService();
 
 
         } catch (Throwable e3){
-            System.out.println("1 startMqttSubscriber");
+            System.out.println("MQTT : не удалось запустить службу");
         }
 
+    }
+
+    private void setTopicList(){
+        try {
+
+            sensorList  = new ArrayList<>();
+            Document xmlSensors = staticMethods.loadXMLFromString(
+                    staticMethods.readFile(Main.AbsPath + "topics.xml")
+            );
+
+            Node node = (Node) XPathFactory.newInstance().newXPath()
+                    .compile("/sensors").evaluate(xmlSensors, XPathConstants.NODE);
+
+            //System.out.println("root node.getTextContent() : " + node.getTextContent());
+
+            NodeList nodeList = node.getChildNodes();
+
+            for (int i=0; i<nodeList.getLength(); i++) {
+                NodeList childNodeListSns = nodeList.item(i).getChildNodes();
+                for (int j=0; j<childNodeListSns.getLength();j++) {
+                    sensorData snsData = null;
+                    if (childNodeListSns.item(j).getNodeName().equals("uid")) {
+                        snsData = new sensorData(childNodeListSns
+                                .item(j).getTextContent());
+
+                        System.out.println("snsData.UID : " + snsData.UID);
+                    }
+
+
+                    if (childNodeListSns.item(j).getNodeName().equals("topics")) {
+//                        NodeList topicNodeListSns = childNodeListSns.item(j);
+//
+//                        for (int k = 0; k < topicNodeListSns.getLength(); k++) {
+//
+//
+//                            String snsDataMeasureType = null;
+//                            String snsDataTopicName = null;
+//
+//                            if (topicNodeListSns.item(k).getNodeName().equals("measure_type")){
+//                                snsDataMeasureType = topicNodeListSns
+//                                        .item(k).getTextContent();
+//                            } else {
+//                                System.out.println("topicNodeListSns.item(k).getNodeName() : " + topicNodeListSns.item(k).getNodeName());
+//                            }
+//
+//                            if (topicNodeListSns.item(k).getNodeName().equals("topic_name")){
+//                                snsDataTopicName = topicNodeListSns
+//                                        .item(k).getTextContent();
+//                            }
+//
+//
+//                            System.out.println("snsDataMeasureType : " + snsDataMeasureType);
+//                            System.out.println("snsDataTopicName : " + snsDataTopicName);
+//
+//                        }
+                    }
+                    //sensorList.add(snsData);
+                }
+            }
+        } catch (Exception e){
+            e.printStackTrace();
+            System.out.println("MQTT : Ошибка чтения файла топиков");
+        }
+
+    }
+
+    public void setMqttService(){
+        try {
+
+            if (setMqttServiceProperties()) {
+                startMqttSubscriber();
+                startMqttPublisher();
+            }
+
+
+        } catch (Exception e3){
+            System.out.println("MQTT : не удалось запустить службу");
+        }
     }
 
     public SSLSocketFactory configureSSLSocketFactory() throws KeyManagementException, NoSuchAlgorithmException,
@@ -139,8 +217,8 @@ public class MQTTService implements MqttCallback {
             readClient.subscribe(readTopicName);
 
         } catch (MqttException e1) {
-            //e1.printStackTrace();
-            System.out.println("2 startMqttSubscriber");
+            e1.printStackTrace();
+            System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
             readClient = null;
         }
     }
@@ -162,45 +240,51 @@ public class MQTTService implements MqttCallback {
             System.out.println("writeClient done");
 
         } catch (MqttException e1) {
-            System.out.println("3 startMqttSubscriber");
+            System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
             writeClient = null;
         }
 
     }
 
     public void publishUIDMessage(String uid,String messAge){
-        try{
-
-            Set<Object> topics = topicProp.keySet();
-            if (topics.size()>0 && topics.contains(uid)) {
-
-                MqttMessage mqttMessage = new MqttMessage(messAge.getBytes());
-                writeClient.connect(mqttOptions);
-                writeClient.publish(topicProp.getProperty(uid), mqttMessage);
-                writeClient.disconnect();
-
-            } else {
-                System.out.println("Датчик привязан, но его нет в списке.");
-            }
-
-        } catch (MqttException e1) {
-            System.out.println("mqtt server не доступен");
-            writeClient = null;
-        }
+//        try{
+//
+//            Set<Object> topics = topicProp.keySet();
+//            if (topics.size()>0 && topics.contains(uid)) {
+//
+//                MqttMessage mqttMessage = new MqttMessage(messAge.getBytes());
+//                writeClient.connect(mqttOptions);
+//                writeClient.publish(topicProp.getProperty(uid), mqttMessage);
+//                writeClient.disconnect();
+//
+//            } else {
+//                System.out.println("MQTT : датчик привязан, но почему-то отсутствует в списке");
+//            }
+//
+//        } catch (MqttException e1) {
+//            System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
+//            writeClient = null;
+//        }
     }
 
     public void addInTopicList(String uid,String topic){
-        try {
-            FileOutputStream output = new FileOutputStream(Main.AbsPath + "topics.properties");
-            topicProp.put(uid, topic);
-            topicProp.store(output, null);
-        } catch (IOException e){
-            e.printStackTrace();
-        }
+//        try {
+//            FileOutputStream output = new FileOutputStream(Main.AbsPath + "topics.properties");
+//            topicProp.put(uid, topic);
+//            topicProp.store(output, null);
+//        } catch (IOException e){
+//            e.printStackTrace();
+//        }
     }
 
     private void deleteFromTopicList(){
-
+//        String file="D:\\path of your file\abc.properties";
+//        Path path = Paths.get(file);
+//        Charset charset = StandardCharsets.UTF_8;
+//
+//        String content = new String(Files.readAllBytes(path), charset);
+//        content = content.replaceAll("name=anything", "name=anything1");
+//        Files.write(path, content.getBytes(charset));
     }
 
 }

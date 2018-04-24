@@ -23,8 +23,20 @@ public class HTTPService {
     public HTTPService(){
         try {
 
-        webServiceURL = Main.prop.getProperty("HTTP_UNIFIED_WS_URL");
-        httpClient = new DefaultHttpClient();
+            setHttpService();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            //httpClient = null;
+        }
+
+    }
+
+    public void setHttpService(){
+        try {
+
+            webServiceURL = Main.prop.getProperty("HTTP_UNIFIED_WS_URL");
+            httpClient = new DefaultHttpClient();
 
 
             String checkConnection = linkDevice("TEST");
@@ -39,8 +51,8 @@ public class HTTPService {
 
         } catch (Exception e) {
             e.printStackTrace();
+            httpClient = null;
         }
-
     }
 
     public String linkDevice(
@@ -69,7 +81,7 @@ public class HTTPService {
             HttpResponse response = httpClient.execute(post);
             BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
 
-            Document resXml = Main.loadXMLFromString(rd.lines().collect(Collectors.joining()));
+            Document resXml = staticMethods.loadXMLFromString(rd.lines().collect(Collectors.joining()));
             respWs = XPathFactory.newInstance().newXPath()
                     .compile("//return").evaluate(resXml);
 

@@ -76,6 +76,7 @@ public class UARTServer extends Thread {
 
                     } else {
                         result = "http service not available now";
+                        httpService.setHttpService();
                     }
 
                 } else {

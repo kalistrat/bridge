@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sensors>
+    <sensor>
+        <uid>SEN-R0LS9VWSC2EN</uid>
+        <topics>
+            <topic>
+                <measure_type>TEMPERATURE</measure_type>
+                <topic_name>/SEN-R0LS9VWSC2EN/TEM</topic_name>
+            </topic>
+            <topic>
+                <measure_type>HUMIDITY</measure_type>
+                <topic_name>/SEN-R0LS9VWSC2EN/HUM</topic_name>
+            </topic>
+        </topics>
+    </sensor>
+    <sensor>
+        <uid>SEN-VGYS678SC098</uid>
+        <topics>
+            <topic>
+                <measure_type>COUNTER</measure_type>
+                <topic_name>/SEN-VGYS678SC098</topic_name>
+            </topic>
+        </topics>
+    </sensor>
+</sensors>

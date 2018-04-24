@@ -1,19 +1,10 @@
 package com;
 
-import org.w3c.dom.Document;
-import org.xml.sax.InputSource;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.FileInputStream;
-import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.URLDecoder;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
-import java.util.Set;
 
 public class Main {
 
@@ -71,11 +62,4 @@ public class Main {
         }
     }
 
-    public static Document loadXMLFromString(String xml) throws Exception
-    {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        InputSource is = new InputSource(new StringReader(xml));
-        return builder.parse(is);
-    }
 }
