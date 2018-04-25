@@ -60,6 +60,8 @@ public class UARTServer extends Thread {
         try {
 
             List<String> messPieces = getListFromString(clientMessage,":");
+            //UID:TIME(unix):VALUES:STATE
+            //SNS-123123:42141231341:34.3:5
 
             if (messPieces.size() == 1) {
                 String uid = getUIDSensor(messPieces.get(0));

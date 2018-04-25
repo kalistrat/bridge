@@ -26,8 +26,7 @@ public class HTTPService {
             setHttpService();
 
         } catch (Exception e) {
-            e.printStackTrace();
-            //httpClient = null;
+            System.out.println("HTTP : Ошибка запуска службы");
         }
 
     }
@@ -41,16 +40,17 @@ public class HTTPService {
 
             String checkConnection = linkDevice("TEST");
             if (checkConnection == null) {
-                System.out.println("центральный веб-сервис недоступен");
+                System.out.println("HTTP : центральный веб-сервис " + webServiceURL + " недоступен");
                 httpClient = null;
             } else {
-                System.out.println("соединение с " + webServiceURL + " установлено");
+                System.out.println("HTTP : соединение с " + webServiceURL + " установлено");
             }
 
             //System.out.println("checkConnection : " + checkConnection);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            //e.printStackTrace();
+            System.out.println("HTTP : Ошибка перезапуска службы");
             httpClient = null;
         }
     }

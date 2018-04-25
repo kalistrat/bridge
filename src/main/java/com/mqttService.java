@@ -41,7 +41,7 @@ public class MQTTService implements MqttCallback {
 
 
         } catch (Throwable e3){
-            e3.printStackTrace();
+            //e3.printStackTrace();
             System.out.println("MQTT : не удалось запустить службу");
         }
 
@@ -104,19 +104,19 @@ public class MQTTService implements MqttCallback {
 
             }
 
-            for (sensorData iSenData : sensorList){
-                System.out.println("iSenData.UID : " + iSenData.UID);
-                for (topicData iTopicData : iSenData.TOPIC_LIST){
-                    System.out.println("iTopicData.MEASURE_TYPE : " + iTopicData.MEASURE_TYPE);
-                    System.out.println("iTopicData.TOPIC_NAME : " + iTopicData.TOPIC_NAME);
-                }
-            }
+//            for (sensorData iSenData : sensorList){
+//                System.out.println("iSenData.UID : " + iSenData.UID);
+//                for (topicData iTopicData : iSenData.TOPIC_LIST){
+//                    System.out.println("iTopicData.MEASURE_TYPE : " + iTopicData.MEASURE_TYPE);
+//                    System.out.println("iTopicData.TOPIC_NAME : " + iTopicData.TOPIC_NAME);
+//                }
+//            }
 
 
 
 
         } catch (Exception e){
-            e.printStackTrace();
+            //e.printStackTrace();
             System.out.println("MQTT : Ошибка чтения файла топиков");
         }
 
@@ -211,7 +211,7 @@ public class MQTTService implements MqttCallback {
             }
 
         } catch (Exception e){
-            e.printStackTrace();
+            System.out.println("MQTT : setMqttServiceProperties: невозможно применить настройки");
         }
         return  mqttProprs;
     }
@@ -221,16 +221,19 @@ public class MQTTService implements MqttCallback {
             readClient = null;
             System.gc();
 
-            System.out.println("mqttServerHost : " + mqttServerHost);
+            //System.out.println("mqttServerHost : " + mqttServerHost);
 
             readClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
             readClient.connect(mqttOptions);
             readClient.setCallback(this);
             readClient.subscribe(readTopicName);
 
+            System.out.println("MQTT : подписчик сформировался успешно");
+
+
         } catch (MqttException e1) {
-            e1.printStackTrace();
-            System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
+            //e1.printStackTrace();
+            System.out.println("MQTT : startMqttSubscriber: центральный сервер недоступен или неверен логин и пароль");
             readClient = null;
         }
     }
@@ -240,19 +243,20 @@ public class MQTTService implements MqttCallback {
 
             writeClient = null;
             System.gc();
-            System.out.println("writeClient start create");
+
             writeClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
 
             MqttMessage mqttMessage = new MqttMessage("test_publisher".getBytes());
-            System.out.println("try to connect to mqtt-server");
+
             writeClient.connect(mqttOptions);
             writeClient.publish("TEST", mqttMessage);
             writeClient.disconnect();
 
-            System.out.println("writeClient done");
+            System.out.println("MQTT : издатель сформировался успешно");
+
 
         } catch (MqttException e1) {
-            System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
+            System.out.println("MQTT : MqttPublisher : центральный сервер недоступен или неверен логин и пароль");
             writeClient = null;
         }
 
