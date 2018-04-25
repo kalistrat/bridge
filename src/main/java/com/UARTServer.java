@@ -68,7 +68,7 @@ public class UARTServer extends Thread {
                         String httpResponse = httpService.linkDevice(mqttService.mqttUID+"|"+uid);
                         if (!httpResponse.contains("ERROR")){
                             List<String> respAttr = getListFromString(httpResponse,";");
-                            mqttService.addInTopicList(uid,getMqttAttr(respAttr,"mqttTopic"));
+                            //mqttService.addInTopicList(uid,getMqttAttr(respAttr,"mqttTopic"));
                             result = "this is your encription key XXX";
                         } else {
                             result = "error registration sensor";

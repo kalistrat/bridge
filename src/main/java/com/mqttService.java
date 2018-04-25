@@ -2,20 +2,19 @@ package com;
 
 import org.eclipse.paho.client.mqttv3.*;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import javax.net.ssl.*;
 import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathFactory;
 import java.io.*;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
-import java.util.Set;
+
 
 /**
  * Created by kalistrat on 13.04.2018.
@@ -37,74 +36,85 @@ public class MQTTService implements MqttCallback {
         try {
 
 
-
-            setTopicList();
+            sensorList  = new ArrayList<>();
             setMqttService();
 
 
         } catch (Throwable e3){
+            e3.printStackTrace();
             System.out.println("MQTT : не удалось запустить службу");
         }
 
     }
 
-    private void setTopicList(){
+    private void setSensorList(){
         try {
 
-            sensorList  = new ArrayList<>();
+            sensorList.clear();
             Document xmlSensors = staticMethods.loadXMLFromString(
                     staticMethods.readFile(Main.AbsPath + "topics.xml")
             );
 
-            Node node = (Node) XPathFactory.newInstance().newXPath()
+            Node nodeUID = (Node) XPathFactory.newInstance().newXPath()
                     .compile("/sensors").evaluate(xmlSensors, XPathConstants.NODE);
 
-            //System.out.println("root node.getTextContent() : " + node.getTextContent());
 
-            NodeList nodeList = node.getChildNodes();
+            NodeList nodeUIDList = nodeUID.getChildNodes();
 
-            for (int i=0; i<nodeList.getLength(); i++) {
-                NodeList childNodeListSns = nodeList.item(i).getChildNodes();
+            for (int i=0; i<nodeUIDList.getLength(); i++) {
+                NodeList childNodeListSns = nodeUIDList.item(i).getChildNodes();
+
                 for (int j=0; j<childNodeListSns.getLength();j++) {
-                    sensorData snsData = null;
+
                     if (childNodeListSns.item(j).getNodeName().equals("uid")) {
-                        snsData = new sensorData(childNodeListSns
-                                .item(j).getTextContent());
-
-                        System.out.println("snsData.UID : " + snsData.UID);
+                        sensorList.add(new sensorData(childNodeListSns
+                                .item(j).getTextContent()));
                     }
-
-
-                    if (childNodeListSns.item(j).getNodeName().equals("topics")) {
-//                        NodeList topicNodeListSns = childNodeListSns.item(j);
-//
-//                        for (int k = 0; k < topicNodeListSns.getLength(); k++) {
-//
-//
-//                            String snsDataMeasureType = null;
-//                            String snsDataTopicName = null;
-//
-//                            if (topicNodeListSns.item(k).getNodeName().equals("measure_type")){
-//                                snsDataMeasureType = topicNodeListSns
-//                                        .item(k).getTextContent();
-//                            } else {
-//                                System.out.println("topicNodeListSns.item(k).getNodeName() : " + topicNodeListSns.item(k).getNodeName());
-//                            }
-//
-//                            if (topicNodeListSns.item(k).getNodeName().equals("topic_name")){
-//                                snsDataTopicName = topicNodeListSns
-//                                        .item(k).getTextContent();
-//                            }
-//
-//
-//                            System.out.println("snsDataMeasureType : " + snsDataMeasureType);
-//                            System.out.println("snsDataTopicName : " + snsDataTopicName);
-//
-//                        }
-                    }
-                    //sensorList.add(snsData);
                 }
             }
+
+            for (sensorData iSns : sensorList){
+
+                Node nodeTopic = (Node) XPathFactory.newInstance().newXPath()
+                        .compile("/sensors/sensor[uid='" + iSns.UID + "']/topics").evaluate(xmlSensors, XPathConstants.NODE);
+
+                NodeList nodeTopicList = nodeTopic.getChildNodes();
+
+
+
+                for (int j = 0; j<nodeTopicList.getLength();j++) {
+                    NodeList nodeTopicSnsList = nodeTopicList.item(j).getChildNodes();
+                    String measure_type = null;
+                    String topic_name = null;
+                    for (int i = 0; i < nodeTopicSnsList.getLength(); i++) {
+
+                        if (nodeTopicSnsList.item(i).getNodeName().equals("measure_type")) {
+                            measure_type = nodeTopicSnsList.item(i).getTextContent();
+                        }
+
+                        if (nodeTopicSnsList.item(i).getNodeName().equals("topic_name")) {
+                            topic_name = nodeTopicSnsList.item(i).getTextContent();
+                        }
+                    }
+
+                    if (measure_type !=null && topic_name != null) {
+                        iSns.addTopic(measure_type, topic_name);
+                    }
+                }
+
+            }
+
+            for (sensorData iSenData : sensorList){
+                System.out.println("iSenData.UID : " + iSenData.UID);
+                for (topicData iTopicData : iSenData.TOPIC_LIST){
+                    System.out.println("iTopicData.MEASURE_TYPE : " + iTopicData.MEASURE_TYPE);
+                    System.out.println("iTopicData.TOPIC_NAME : " + iTopicData.TOPIC_NAME);
+                }
+            }
+
+
+
+
         } catch (Exception e){
             e.printStackTrace();
             System.out.println("MQTT : Ошибка чтения файла топиков");
@@ -114,6 +124,8 @@ public class MQTTService implements MqttCallback {
 
     public void setMqttService(){
         try {
+
+            setSensorList();
 
             if (setMqttServiceProperties()) {
                 startMqttSubscriber();
@@ -267,24 +279,82 @@ public class MQTTService implements MqttCallback {
 //        }
     }
 
-    public void addInTopicList(String uid,String topic){
-//        try {
-//            FileOutputStream output = new FileOutputStream(Main.AbsPath + "topics.properties");
-//            topicProp.put(uid, topic);
-//            topicProp.store(output, null);
-//        } catch (IOException e){
-//            e.printStackTrace();
-//        }
+    public void addSensorToFile(sensorData SENSOR){
+        try {
+            Document xmlSensors = staticMethods.loadXMLFromString(
+                    staticMethods.readFile(Main.AbsPath + "topics.xml")
+            );
+
+
+            Element xmlSensorsElement = xmlSensors.createElement("sensor");
+            Element xmlUIDElement = xmlSensors.createElement("uid");
+            xmlUIDElement.setTextContent(SENSOR.UID);
+
+            xmlSensorsElement.appendChild(xmlUIDElement);
+
+            Element xmlTopicsElement = xmlSensors.createElement("topics");
+
+            for (topicData iTopic : SENSOR.TOPIC_LIST) {
+                Element xmlTopicElement = xmlSensors.createElement("topic");
+                Element xmlMeasureTypeElement = xmlSensors.createElement("measure_type");
+                xmlMeasureTypeElement.setTextContent(iTopic.MEASURE_TYPE);
+                Element xmlTopicNameElement = xmlSensors.createElement("topic_name");
+                xmlTopicNameElement.setTextContent(iTopic.TOPIC_NAME);
+                xmlTopicElement.appendChild(xmlMeasureTypeElement);
+                xmlTopicElement.appendChild(xmlTopicNameElement);
+                xmlTopicsElement.appendChild(xmlTopicElement);
+            }
+
+            xmlSensorsElement.appendChild(xmlTopicsElement);
+            xmlSensors.getDocumentElement().appendChild(xmlSensorsElement);
+
+            staticMethods.loadXMLtoFile(xmlSensors);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    private void deleteFromTopicList(){
-//        String file="D:\\path of your file\abc.properties";
-//        Path path = Paths.get(file);
-//        Charset charset = StandardCharsets.UTF_8;
-//
-//        String content = new String(Files.readAllBytes(path), charset);
-//        content = content.replaceAll("name=anything", "name=anything1");
-//        Files.write(path, content.getBytes(charset));
+    public void deleteSensorFromFile(String removeUID){
+        try {
+
+            Document xmlSensors = staticMethods.loadXMLFromString(
+                    staticMethods.readFile(Main.AbsPath + "topics.xml")
+            );
+
+            Node removeNode = (Node) XPathFactory.newInstance().newXPath()
+                    .compile("/sensors/sensor[uid='" + removeUID + "']").evaluate(xmlSensors, XPathConstants.NODE);
+
+            xmlSensors.getDocumentElement().removeChild(removeNode);
+
+            staticMethods.loadXMLtoFile(xmlSensors);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
+
+    public void addSensor(String UID){
+        sensorList.add(new sensorData(UID));
+    }
+
+    public void addSensorTopicData(String UID,String mesType,String topicName){
+        for (sensorData iSensor : sensorList){
+            if (iSensor.UID.equals(UID)){
+                iSensor.addTopic(mesType,topicName);
+            }
+        }
+    }
+
+    public sensorData getSensor(String UID){
+        sensorData snsData = null;
+        for (sensorData iSensor : sensorList){
+            if (iSensor.UID.equals(UID)){
+                snsData = iSensor;
+            }
+        }
+        return snsData;
+    }
+
 
 }
