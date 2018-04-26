@@ -3,7 +3,6 @@ package com;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -59,93 +58,81 @@ public class UARTServer extends Thread {
         String result;
         try {
 
-            List<String> messPieces = getListFromString(clientMessage,":");
+            List<String> messPieces = staticMethods.getListFromString(clientMessage,":");
             //UID:TIME(unix):VALUES:STATE
             //SNS-123123:42141231341:34.3:5
 
             if (messPieces.size() == 1) {
                 String uid = getUIDSensor(messPieces.get(0));
                 if (uid != null) {
-                    if (httpService.httpClient != null) {
-                        String httpResponse = httpService.linkDevice(mqttService.mqttUID+"|"+uid);
-                        if (!httpResponse.contains("ERROR")){
-                            List<String> respAttr = getListFromString(httpResponse,";");
-                            //mqttService.addInTopicList(uid,getMqttAttr(respAttr,"mqttTopic"));
-                            result = "this is your encription key XXX";
+                    String preffixUID = staticMethods.getListFromString(uid,"-").get(0);
+                    if (preffixUID.equals("SEN")) {
+                        if (httpService.httpClient != null) {
+
+                            String httpResponse = httpService.linkDevice(mqttService.mqttUID + "|" + uid);
+                            if (!httpResponse.contains("ERROR")) {
+                                String senTopic = staticMethods.getResponseAttrValue("toServerTopic",httpResponse);
+                                sensorData newSns = mqttService.addSensor(uid);
+                                newSns.addTopic("SEN_TYPE",senTopic);
+                                mqttService.addSensorToFile(newSns);
+                                System.out.println("UART : датчик с " + uid + " успешно привязан");
+                                result = "message : " + clientMessage + " - accepted and processed";
+                            } else {
+                                System.out.println("UART : датчик с " + uid + " привязать не удалось : " + httpResponse);
+                                result = "message : " + clientMessage + " - accepted and processed";
+                            }
+
                         } else {
-                            result = "error registration sensor";
+                            System.out.println("UART : служба привязки (http) недоступна. Производится её повторный запуск");
+                            result = "message : " + clientMessage + " - accepted and processed";
+                            httpService.setHttpService();
                         }
 
                     } else {
-                        result = "http service not available now";
-                        httpService.setHttpService();
+                        System.out.println("UART : привязываемый датчик имеет недопустимый тип -" + preffixUID);
+                        result = "message : " + clientMessage + " - accepted and processed";
                     }
 
                 } else {
-                    result = "invalid message UID";
+                    System.out.println("UART : UID привязываемого датчика имеет недопустимый формат");
+                    result = "message : " + clientMessage + " - accepted and processed";
                 }
-            } else if (messPieces.size() == 2) {
+            } else if (messPieces.size() == 4) {
                 String uid = getUIDSensor(messPieces.get(0));
                 if (uid != null) {
-                    if (mqttService.writeClient != null) {
-                        mqttService.publishUIDMessage(uid,messPieces.get(1));
-                        result = "message sent to mqtt server : " + mqttService.mqttServerHost;
+                    if (mqttService.isSensorLinked(uid)) {
+                        if (mqttService.writeClient != null) {
+                            mqttService.publishUIDMessage(uid, messPieces);
+                            System.out.println("UART : Сообщение " + clientMessage + " - успешно отправлено");
+                            result = "message : " + clientMessage + " - accepted and processed";
+                        } else {
+                            System.out.println("UART : служба отправки показаний (mqtt) не доступна. Производится её повторный запуск");
+                            mqttService.setMqttService();
+                            result = "message : " + clientMessage + " - accepted and processed";
+                        }
                     } else {
-                        result = "Server : " + mqttService.mqttServerHost +" is not available";
+                        System.out.println("UART : датчик с UID " + uid + " - не привязан. Сообщение не может быть отправлено");
+                        result = "message : " + clientMessage + " - accepted and processed";
                     }
                 } else {
-                    result = "invalid message UID";
+                    System.out.println("UART : принятое сообщение имеет недопустимый UID и не может быть обработано");
+                    result = "message : " + clientMessage + " - accepted and processed";
                 }
             } else {
-                result = "invalid sensor message";
+                System.out.println("UART : принятое сообщение имеет недопустимый формат");
+                result = "message : " + clientMessage + " - accepted and processed";
             }
 
 
         } catch (Exception e) {
             e.printStackTrace();
-            result = "Error execution executeSnsMessAge";
+            System.out.println("UART : при обработке сообщения произошла ошибка выполнения");
+            result = "message : " + clientMessage + " - accepted and processed";;
         }
 
         return result;
     }
 
-    private List<String> getListFromString(String DevidedString, String Devider){
-        List<String> StrPieces = new ArrayList<String>();
-        try {
-            int k = 0;
-            String iDevidedString;
-            // 123|321|456|
-
-            if (DevidedString.startsWith(Devider)) {
-                DevidedString = DevidedString.substring(1,DevidedString.length());
-            }
-
-            if (!DevidedString.contains(Devider)) {
-                iDevidedString = DevidedString + Devider;
-            } else {
-                if (!DevidedString.endsWith(Devider)) {
-                    iDevidedString = DevidedString + Devider;
-                } else {
-                    iDevidedString = DevidedString;
-                }
-            }
-
-            while (!iDevidedString.equals("")) {
-                int Pos = iDevidedString.indexOf(Devider);
-                StrPieces.add(iDevidedString.substring(0, Pos));
-                iDevidedString = iDevidedString.substring(Pos + 1);
-                k = k + 1;
-                if (k > 100000) {
-                    iDevidedString = "";
-                }
-            }
-
-        } catch (Exception e){
-
-        }
-
-        return StrPieces;
-    }
 
     private String getUIDSensor(String s){
         String UID = null;
@@ -161,17 +148,6 @@ public class UARTServer extends Thread {
             e.printStackTrace();
         }
         return UID;
-    }
-
-    private String getMqttAttr(List<String> attrs,String attrName){
-        String attrValue = null;
-        for (String si : attrs){
-            if (si.contains(attrName)){
-                attrValue = si.replace("mqttLogin","").replace(":","").replace(" ","");
-            }
-        }
-
-        return attrValue;
     }
 
 }

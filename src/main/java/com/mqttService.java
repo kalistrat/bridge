@@ -27,16 +27,19 @@ public class MQTTService implements MqttCallback {
     String serverPassword;
     String mqttServerHost;
     String readTopicName;
+    String writeTopicName;
     String mqttUID;
 
     MqttConnectOptions mqttOptions;
     List<sensorData> sensorList;
+    HTTPService httpService;
 
-    public MQTTService()  {
+    public MQTTService(HTTPService hService)  {
         try {
 
 
             sensorList  = new ArrayList<>();
+            httpService = hService;
             setMqttService();
 
 
@@ -134,7 +137,7 @@ public class MQTTService implements MqttCallback {
 
 
         } catch (Exception e3){
-            System.out.println("MQTT : не удалось запустить службу");
+            System.out.println("MQTT : setMqttService : не удалось запустить службу");
         }
     }
 
@@ -182,20 +185,28 @@ public class MQTTService implements MqttCallback {
         boolean mqttProprs = false;
         try {
 
+            String predLogin = Main.prop.getProperty("MQTT_LOGIN");
+            String predPassword = Main.prop.getProperty("MQTT_PASSWORD");
+            String predServerHost = Main.prop.getProperty("MQTT_HOST");
+            String predReadTopicName = Main.prop.getProperty("MQTT_FROM_SERVER_TOPIC");
+            String predWriteTopicName = Main.prop.getProperty("MQTT_TO_SERVER_TOPIC");
+            String predMqttUID = Main.prop.getProperty("MQTT_UID");
+
             if (
-                    (Main.prop.getProperty("MQTT_HOST") != null)
-                    && (Main.prop.getProperty("MQTT_PASSWORD") != null)
-                    && (Main.prop.getProperty("MQTT_LOGIN") != null)
-                    && (Main.prop.getProperty("MQTT_FROM_SERVER_TOPIC") != null)
-                    && (Main.prop.getProperty("MQTT_UID") != null)
+                    (!predLogin.equals(""))
+                    && (!predPassword.equals(""))
+                    && (!predServerHost.equals(""))
+                    && (!predReadTopicName.equals(""))
+                    && (!predWriteTopicName.equals(""))
+                    && (!predMqttUID.equals(""))
 
                     ) {
                 serverLogin = Main.prop.getProperty("MQTT_LOGIN");
                 serverPassword = Main.prop.getProperty("MQTT_PASSWORD");
                 mqttServerHost = Main.prop.getProperty("MQTT_HOST");
                 readTopicName = Main.prop.getProperty("MQTT_FROM_SERVER_TOPIC");
+                writeTopicName = Main.prop.getProperty("MQTT_TO_SERVER_TOPIC");
                 mqttUID = Main.prop.getProperty("MQTT_UID");
-
 
                 mqttOptions = new MqttConnectOptions();
                 mqttOptions.setUserName(serverLogin);
@@ -208,9 +219,43 @@ public class MQTTService implements MqttCallback {
                 mqttOptions.setConnectionTimeout(0);
 
                 mqttProprs = true;
+                System.out.println("MQTT : setMqttServiceProperties: настройки успешно применены");
+
+            } else {
+                if (Main.prop.getProperty("MQTT_UID") != null) {
+                    String linkResponse = httpService.linkDevice(Main.prop.getProperty("MQTT_UID"));
+
+                    if (!linkResponse.contains("ERROR")){
+
+                        serverLogin = staticMethods.getResponseAttrValue("mqttLogin",linkResponse);
+                        serverPassword = staticMethods.getResponseAttrValue("mqttPassword",linkResponse);
+                        mqttServerHost = staticMethods.getResponseAttrValue("mqttHost",linkResponse);
+                        readTopicName = staticMethods.getResponseAttrValue("fromServerTopic",linkResponse);
+                        writeTopicName = staticMethods.getResponseAttrValue("toServerTopic",linkResponse);
+                        mqttUID = Main.prop.getProperty("MQTT_UID");
+
+
+                        Main.prop.setProperty("MQTT_LOGIN",serverLogin);
+                        Main.prop.setProperty("MQTT_PASSWORD",serverPassword);
+                        Main.prop.setProperty("MQTT_HOST",mqttServerHost);
+                        Main.prop.setProperty("MQTT_FROM_SERVER_TOPIC",readTopicName);
+                        Main.prop.setProperty("MQTT_TO_SERVER_TOPIC",writeTopicName);
+
+                        FileOutputStream output = new FileOutputStream(Main.AbsPath + "config.properties");
+                        Main.prop.store(output,"bridge linked");
+
+
+                    } else {
+                        System.out.println("MQTT : setMqttServiceProperties: привязка бриджа завершилась с ошибкой : " + linkResponse);
+                    }
+                } else {
+                    System.out.println("MQTT : setMqttServiceProperties: UID бриджа не задан. Его привязка невозможна");
+                }
+
             }
 
         } catch (Exception e){
+            e.printStackTrace();
             System.out.println("MQTT : setMqttServiceProperties: невозможно применить настройки");
         }
         return  mqttProprs;
@@ -220,8 +265,6 @@ public class MQTTService implements MqttCallback {
         try{
             readClient = null;
             System.gc();
-
-            //System.out.println("mqttServerHost : " + mqttServerHost);
 
             readClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
             readClient.connect(mqttOptions);
@@ -262,25 +305,29 @@ public class MQTTService implements MqttCallback {
 
     }
 
-    public void publishUIDMessage(String uid,String messAge){
-//        try{
-//
-//            Set<Object> topics = topicProp.keySet();
-//            if (topics.size()>0 && topics.contains(uid)) {
-//
-//                MqttMessage mqttMessage = new MqttMessage(messAge.getBytes());
-//                writeClient.connect(mqttOptions);
-//                writeClient.publish(topicProp.getProperty(uid), mqttMessage);
-//                writeClient.disconnect();
-//
-//            } else {
-//                System.out.println("MQTT : датчик привязан, но почему-то отсутствует в списке");
-//            }
-//
-//        } catch (MqttException e1) {
-//            System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
-//            writeClient = null;
-//        }
+    public void publishUIDMessage(String uid,List<String> messAge){
+        try{
+            //UID:TIME(unix):VALUES:STATE
+            //SNS-123123:42141231341:34.3:5
+            String measureValues = messAge.get(2).replace(" ","");
+            String unixTime = messAge.get(1).replace(" ","");
+            String stateValue = messAge.get(3).replace(" ","");
+
+            List<String> messValPieces = staticMethods.getListFromString(measureValues,";");
+
+            String val_1 = messValPieces.get(0).replace(" ","");
+
+            MqttMessage mqttMessage = new MqttMessage((unixTime + ":" +val_1).getBytes());
+            writeClient.connect(mqttOptions);
+            writeClient.publish(getSensor(uid).TOPIC_LIST.get(0).TOPIC_NAME, mqttMessage);
+            writeClient.disconnect();
+
+            System.out.println("MQTT : сообщение датчика с " + uid + " - успешно отправлено");
+
+        } catch (MqttException e1) {
+            System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
+            writeClient = null;
+        }
     }
 
     public void addSensorToFile(sensorData SENSOR){
@@ -338,8 +385,10 @@ public class MQTTService implements MqttCallback {
         }
     }
 
-    public void addSensor(String UID){
-        sensorList.add(new sensorData(UID));
+    public sensorData addSensor(String UID){
+        sensorData sns = new sensorData(UID);
+        sensorList.add(sns);
+        return sns;
     }
 
     public void addSensorTopicData(String UID,String mesType,String topicName){
@@ -358,6 +407,16 @@ public class MQTTService implements MqttCallback {
             }
         }
         return snsData;
+    }
+
+    public boolean isSensorLinked(String UID){
+        boolean linked = false;
+        for (sensorData iSns : sensorList){
+            if (iSns.UID.equals(UID)){
+                linked = true;
+            }
+        }
+        return linked;
     }
 
 

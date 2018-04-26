@@ -30,7 +30,7 @@ public class Main {
             prop = new Properties();
 
 
-            System.out.println("AbsPath : " + AbsPath);
+            System.out.println("Приложение размещено : " + AbsPath);
             //System.out.println("config.properties : " + AbsPath + "config.properties");
             FileInputStream input = new FileInputStream(AbsPath + "config.properties");
             prop.load(input);
@@ -42,7 +42,7 @@ public class Main {
 //            System.out.println("UART_PORT :" + prop.getProperty("UART_PORT"));
 
             HTTPService httpService = new HTTPService();
-            MQTTService mqttService = new MQTTService();
+            MQTTService mqttService = new MQTTService(httpService);
 
             ServerSocket server = new ServerSocket(3777, 0,
                     InetAddress.getByName("localhost"));
