@@ -67,25 +67,31 @@ public class UARTServer extends Thread {
                 if (uid != null) {
                     String preffixUID = staticMethods.getListFromString(uid,"-").get(0);
                     if (preffixUID.equals("SEN")) {
-                        if (httpService.httpClient != null) {
+                        if (mqttService.writeClient != null) {
+                            if (httpService.httpClient != null) {
 
-                            String httpResponse = httpService.linkDevice(mqttService.mqttUID + "|" + uid);
-                            if (!httpResponse.contains("ERROR")) {
-                                String senTopic = staticMethods.getResponseAttrValue("toServerTopic",httpResponse);
-                                sensorData newSns = mqttService.addSensor(uid);
-                                newSns.addTopic("SEN_TYPE",senTopic);
-                                mqttService.addSensorToFile(newSns);
-                                System.out.println("UART : датчик с " + uid + " успешно привязан");
-                                result = "key : XXX";
+                                String httpResponse = httpService.linkDevice(mqttService.mqttUID + "|" + uid);
+                                if (!httpResponse.contains("ERROR")) {
+                                    String senTopic = staticMethods.getResponseAttrValue("toServerTopic", httpResponse);
+                                    sensorData newSns = mqttService.addSensor(uid);
+                                    newSns.addTopic("SEN_TYPE", senTopic);
+                                    mqttService.addSensorToFile(newSns);
+                                    System.out.println("UART : датчик с " + uid + " успешно привязан");
+                                    result = "key : XXX";
+                                } else {
+                                    System.out.println("UART : датчик с " + uid + " привязать не удалось : " + httpResponse);
+                                    result = "message : " + clientMessage + " - accepted and processed";
+                                }
+
                             } else {
-                                System.out.println("UART : датчик с " + uid + " привязать не удалось : " + httpResponse);
+                                System.out.println("UART : служба привязки (http) недоступна. Производится её повторный запуск");
                                 result = "message : " + clientMessage + " - accepted and processed";
+                                httpService.setHttpService();
                             }
-
                         } else {
-                            System.out.println("UART : служба привязки (http) недоступна. Производится её повторный запуск");
+                            System.out.println("UART : служба отправки показаний (mqtt) не доступна. Производится её повторный запуск");
+                            mqttService.setMqttService();
                             result = "message : " + clientMessage + " - accepted and processed";
-                            httpService.setHttpService();
                         }
 
                     } else {
