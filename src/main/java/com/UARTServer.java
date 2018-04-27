@@ -76,7 +76,7 @@ public class UARTServer extends Thread {
                                 newSns.addTopic("SEN_TYPE",senTopic);
                                 mqttService.addSensorToFile(newSns);
                                 System.out.println("UART : датчик с " + uid + " успешно привязан");
-                                result = "message : " + clientMessage + " - accepted and processed";
+                                result = "key : XXX";
                             } else {
                                 System.out.println("UART : датчик с " + uid + " привязать не удалось : " + httpResponse);
                                 result = "message : " + clientMessage + " - accepted and processed";
@@ -137,7 +137,7 @@ public class UARTServer extends Thread {
     private String getUIDSensor(String s){
         String UID = null;
         try {
-            String regex = "^(BRI{1}|SNS{1}|RET{1})-[a-zA-Z0-9]{10}$";
+            String regex = "^(BRI{1}|SEN{1}|RET{1})-[a-zA-Z0-9]{12}$";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher(s);
 
