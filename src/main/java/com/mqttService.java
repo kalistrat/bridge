@@ -10,9 +10,13 @@ import javax.net.ssl.*;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.*;
-import java.security.cert.CertificateException;
+import java.security.Certificate;
+import java.security.cert.*;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 
@@ -129,6 +133,7 @@ public class MQTTService implements MqttCallback {
         try {
 
             setSensorList();
+            createClientKeyStore();
 
             if (setMqttServiceProperties()) {
                 startMqttSubscriber();
@@ -232,6 +237,8 @@ public class MQTTService implements MqttCallback {
                         mqttServerHost = staticMethods.getResponseAttrValue("mqttHost",linkResponse);
                         readTopicName = staticMethods.getResponseAttrValue("fromServerTopic",linkResponse);
                         writeTopicName = staticMethods.getResponseAttrValue("toServerTopic",linkResponse);
+                        setCAFile(staticMethods.getResponseAttrValue("certBase64",linkResponse));
+                        importCAtoKeyStore();
                         mqttUID = Main.prop.getProperty("MQTT_UID");
 
 
@@ -299,6 +306,7 @@ public class MQTTService implements MqttCallback {
 
 
         } catch (MqttException e1) {
+            e1.printStackTrace();
             System.out.println("MQTT : MqttPublisher : центральный сервер недоступен или неверен логин и пароль");
             writeClient = null;
         }
@@ -325,6 +333,7 @@ public class MQTTService implements MqttCallback {
             System.out.println("MQTT : сообщение датчика с " + uid + " - успешно отправлено");
 
         } catch (MqttException e1) {
+            e1.printStackTrace();
             System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
             writeClient = null;
         }
@@ -417,6 +426,87 @@ public class MQTTService implements MqttCallback {
             }
         }
         return linked;
+    }
+
+    private void createClientKeyStore(){
+
+        try {
+            File file = new File(Main.AbsPath + "/clientkeystore.jks");
+            KeyStore keyStore = KeyStore.getInstance("JKS");
+            if (file.exists()) {
+                // if exists, load
+                keyStore.load(new FileInputStream(file), "3Point".toCharArray());
+            } else {
+                // if not exists, create
+                keyStore.load(null, null);
+                keyStore.store(new FileOutputStream(file), "3Point".toCharArray());
+            }
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+
+    }
+    private void setCAFile(String base64crt){
+        try {
+
+            byte[] decoded = Base64.getDecoder().decode(base64crt);
+
+            try (FileOutputStream fos = new FileOutputStream(Main.AbsPath+"/client_dec.crt")) {
+                fos.write(decoded);
+                fos.close();
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+
+        }
+    }
+
+    private void importCAtoKeyStore(){
+        try {
+
+            FileInputStream is = new FileInputStream(Main.AbsPath+ "/clientkeystore.jks");
+
+            KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            keystore.load(is, "3Point".toCharArray());
+
+            String alias = "testserver";
+            char[] password = "3Point".toCharArray();
+
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            InputStream certstream = fullStream (Main.AbsPath+ "/client_dec.crt");
+            //Certificate certs = cf.generateCertificate(certstream);
+            java.security.cert.Certificate certs = cf.generateCertificate(certstream);
+
+
+            File keystoreFile = new File(Main.AbsPath+ "/clientkeystore.jks");
+
+            // Load the keystore contents
+            FileInputStream in = new FileInputStream(keystoreFile);
+            keystore.load(in, password);
+            in.close();
+
+            // Add the certificate
+            keystore.setCertificateEntry(alias, certs);
+
+            // Save the new keystore contents
+            FileOutputStream out = new FileOutputStream(keystoreFile);
+            keystore.store(out, password);
+            out.close();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+
+        }
+    }
+
+    private InputStream fullStream (String fname) throws IOException {
+        FileInputStream fis = new FileInputStream(fname);
+        DataInputStream dis = new DataInputStream(fis);
+        byte[] bytes = new byte[dis.available()];
+        dis.readFully(bytes);
+        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+        return bais;
     }
 
 
