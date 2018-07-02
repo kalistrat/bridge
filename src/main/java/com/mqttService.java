@@ -18,6 +18,9 @@ import java.security.cert.*;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -37,12 +40,15 @@ public class MQTTService implements MqttCallback {
     MqttConnectOptions mqttOptions;
     List<sensorData> sensorList;
     HTTPService httpService;
+    List<topicMessage> messagesToSend;
 
     public MQTTService(HTTPService hService)  {
         try {
 
 
             sensorList  = new ArrayList<>();
+            messagesToSend = new ArrayList<>();
+
             httpService = hService;
             setMqttService();
 
@@ -53,6 +59,7 @@ public class MQTTService implements MqttCallback {
         }
 
     }
+
 
     private void setSensorList(){
         try {
@@ -135,13 +142,16 @@ public class MQTTService implements MqttCallback {
             setSensorList();
             createClientKeyStore();
 
+
             if (setMqttServiceProperties()) {
                 startMqttSubscriber();
                 startMqttPublisher();
+                createMessageToQueue(writeTopicName,"STATE:" + mqttUID + ":CONNECTED:" + staticMethods.unixTime());
             }
 
 
         } catch (Exception e3){
+            e3.printStackTrace();
             System.out.println("MQTT : setMqttService : не удалось запустить службу");
         }
     }
@@ -175,6 +185,13 @@ public class MQTTService implements MqttCallback {
 
     public void messageArrived(String topic, MqttMessage message) {
         try {
+//            String iMessage = message.toString();
+//
+//            if (topic.equals(readTopicName)){
+//                if (iMessage.contains("SYNC")){
+//                    System.out.println("MQTT : синхронизация времени " + iMessage);
+//                }
+//            }
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -221,7 +238,7 @@ public class MQTTService implements MqttCallback {
                     SSLSocketFactory ssf = configureSSLSocketFactory();
                     mqttOptions.setSocketFactory(ssf);
                 }
-                mqttOptions.setConnectionTimeout(0);
+                mqttOptions.setConnectionTimeout(2);
 
                 mqttProprs = true;
                 System.out.println("MQTT : setMqttServiceProperties: настройки успешно применены");
@@ -288,7 +305,32 @@ public class MQTTService implements MqttCallback {
         }
     }
 
-    public void startMqttPublisher() {
+//    public void startMqttPublisher() {
+//        try{
+//
+//            writeClient = null;
+//            System.gc();
+//
+//            writeClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
+//
+//            MqttMessage mqttMessage = new MqttMessage("test_publisher".getBytes());
+//
+//            writeClient.connect(mqttOptions);
+//            writeClient.publish("TEST", mqttMessage);
+//            writeClient.disconnect();
+//
+//            System.out.println("MQTT : издатель сформировался успешно");
+//
+//
+//        } catch (MqttException e1) {
+//            e1.printStackTrace();
+//            System.out.println("MQTT : MqttPublisher : центральный сервер недоступен или неверен логин и пароль");
+//            writeClient = null;
+//        }
+//
+//    }
+
+        public void startMqttPublisher() {
         try{
 
             writeClient = null;
@@ -296,11 +338,45 @@ public class MQTTService implements MqttCallback {
 
             writeClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
 
-            MqttMessage mqttMessage = new MqttMessage("test_publisher".getBytes());
+            ScheduledExecutorService ses = Executors.newScheduledThreadPool(1);
 
-            writeClient.connect(mqttOptions);
-            writeClient.publish("TEST", mqttMessage);
-            writeClient.disconnect();
+            Runnable pinger = new Runnable() {
+                public void run() {
+
+                    try {
+
+
+                        writeClient.connect(mqttOptions);
+
+
+                        for (topicMessage iTopMes : messagesToSend){
+                            if (!iTopMes.isProceed) {
+                                writeClient.publish(
+                                        iTopMes.topic
+                                        , iTopMes.mqttMessage
+                                );
+                                iTopMes.isProceed = true;
+                            }
+                        }
+
+                        writeClient.disconnect();
+
+                        for (int i = 0; i < messagesToSend.size(); i++){
+                            if (messagesToSend.get(i).isProceed) {
+                                messagesToSend.remove(i);
+                            }
+                        }
+
+                    } catch (MqttException e){
+                        System.out.println("MQTT : ошибка публикации сообщения ");
+                        e.printStackTrace();
+                    }
+
+                }
+            };
+
+            ses.scheduleAtFixedRate(pinger, 0, 1, TimeUnit.SECONDS);
+
 
             System.out.println("MQTT : издатель сформировался успешно");
 
@@ -313,7 +389,8 @@ public class MQTTService implements MqttCallback {
 
     }
 
-    public void publishUIDMessage(String uid,List<String> messAge){
+
+    public void addMessageToQueue(String uid, List<String> messAge){
         try{
             //UID:TIME(unix):VALUES:STATE
             //SNS-123123:42141231341:34.3:5
@@ -325,19 +402,63 @@ public class MQTTService implements MqttCallback {
 
             String val_1 = messValPieces.get(0).replace(" ","");
 
-            MqttMessage mqttMessage = new MqttMessage((unixTime + ":" +val_1).getBytes());
-            writeClient.connect(mqttOptions);
-            writeClient.publish(getSensor(uid).TOPIC_LIST.get(0).TOPIC_NAME, mqttMessage);
-            writeClient.disconnect();
+            messagesToSend.add(
+                    new topicMessage(
+                    getSensor(uid).TOPIC_LIST.get(0).TOPIC_NAME
+                    ,new MqttMessage((unixTime + ":" +val_1).getBytes())
+                    ,unixTime + ":" +val_1
+                    )
+            );
 
-            System.out.println("MQTT : сообщение датчика с " + uid + " - успешно отправлено");
-
-        } catch (MqttException e1) {
+        } catch (Exception e1) {
             e1.printStackTrace();
-            System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
-            writeClient = null;
+            System.out.println("MQTT : не удалось поместить сообщение в очередь");
         }
     }
+
+    public void createMessageToQueue(String Topic, String messAge){
+        try{
+
+            messagesToSend.add(
+                    new topicMessage(
+                            Topic
+                            ,new MqttMessage(messAge.getBytes())
+                            ,messAge
+                    )
+            );
+
+        } catch (Exception e1) {
+            e1.printStackTrace();
+            System.out.println("MQTT : не удалось поместить сообщение в очередь");
+        }
+    }
+
+
+//    public void publishUIDMessage(String uid,List<String> messAge){
+//        try{
+//            //UID:TIME(unix):VALUES:STATE
+//            //SNS-123123:42141231341:34.3:5
+//            String measureValues = messAge.get(2).replace(" ","");
+//            String unixTime = messAge.get(1).replace(" ","");
+//            String stateValue = messAge.get(3).replace(" ","");
+//
+//            List<String> messValPieces = staticMethods.getListFromString(measureValues,";");
+//
+//            String val_1 = messValPieces.get(0).replace(" ","");
+//
+//            MqttMessage mqttMessage = new MqttMessage((unixTime + ":" +val_1).getBytes());
+//            writeClient.connect(mqttOptions);
+//            writeClient.publish(getSensor(uid).TOPIC_LIST.get(0).TOPIC_NAME, mqttMessage);
+//            writeClient.disconnect();
+//
+//            System.out.println("MQTT : сообщение датчика с " + uid + " - успешно отправлено");
+//
+//        } catch (MqttException e1) {
+//            e1.printStackTrace();
+//            System.out.println("MQTT : центральный сервер недоступен или неверен логин и пароль");
+//            writeClient = null;
+//        }
+//    }
 
     public void addSensorToFile(sensorData SENSOR){
         try {

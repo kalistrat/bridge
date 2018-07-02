@@ -76,6 +76,7 @@ public class UARTServer extends Thread {
                                     sensorData newSns = mqttService.addSensor(uid);
                                     newSns.addTopic("SEN_TYPE", senTopic);
                                     mqttService.addSensorToFile(newSns);
+                                    mqttService.createMessageToQueue(mqttService.writeTopicName,"STATE:" + uid + ":CONNECTED:" + staticMethods.unixTime());
                                     System.out.println("UART : датчик с " + uid + " успешно привязан");
                                     result = "key : XXX";
                                 } else {
@@ -108,7 +109,7 @@ public class UARTServer extends Thread {
                 if (uid != null) {
                     if (mqttService.isSensorLinked(uid)) {
                         if (mqttService.writeClient != null) {
-                            mqttService.publishUIDMessage(uid, messPieces);
+                            mqttService.addMessageToQueue(uid, messPieces);
                             System.out.println("UART : Сообщение " + clientMessage + " - успешно отправлено");
                             result = "message : " + clientMessage + " - accepted and processed";
                         } else {

@@ -11,7 +11,9 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -111,5 +113,11 @@ public class staticMethods {
             e.printStackTrace();
         }
         return parvalue;
+    }
+
+    public static String unixTime(){
+
+           return String.valueOf(new Long(new Date().getTime() / 1000));
+
     }
 }
