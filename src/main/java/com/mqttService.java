@@ -338,9 +338,9 @@ public class MQTTService implements MqttCallback {
 
             writeClient = new MqttClient(mqttServerHost, MqttClient.generateClientId(), null);
 
-            ScheduledExecutorService ses = Executors.newScheduledThreadPool(1);
+            ScheduledExecutorService sesSend = Executors.newScheduledThreadPool(1);
 
-            Runnable pinger = new Runnable() {
+            Runnable sender = new Runnable() {
                 public void run() {
 
                     try {
@@ -348,24 +348,25 @@ public class MQTTService implements MqttCallback {
 
                         writeClient.connect(mqttOptions);
 
+                        System.out.println("writeClient.connect");
 
-                        for (topicMessage iTopMes : messagesToSend){
-                            if (!iTopMes.isProceed) {
+                        int sendSize = messagesToSend.size();
+
+                        for (int j = 0; j < sendSize; j++){
+                            if (!messagesToSend.get(j).isProceed) {
                                 writeClient.publish(
-                                        iTopMes.topic
-                                        , iTopMes.mqttMessage
+                                        messagesToSend.get(j).topic
+                                        , messagesToSend.get(j).mqttMessage
                                 );
-                                iTopMes.isProceed = true;
+                                messagesToSend.get(j).isProceed = true;
+                                System.out.println("writeClient.publish :" + messagesToSend.get(j).topic + " " + messagesToSend.get(j).mqttMessage);
                             }
                         }
 
                         writeClient.disconnect();
 
-                        for (int i = 0; i < messagesToSend.size(); i++){
-                            if (messagesToSend.get(i).isProceed) {
-                                messagesToSend.remove(i);
-                            }
-                        }
+                        System.out.println("writeClient.disconnect");
+
 
                     } catch (MqttException e){
                         System.out.println("MQTT : ошибка публикации сообщения ");
@@ -375,7 +376,32 @@ public class MQTTService implements MqttCallback {
                 }
             };
 
-            ses.scheduleAtFixedRate(pinger, 0, 1, TimeUnit.SECONDS);
+            sesSend.scheduleAtFixedRate(sender, 0, 1, TimeUnit.SECONDS);
+
+
+            ScheduledExecutorService sesClear = Executors.newScheduledThreadPool(1);
+
+            Runnable cleaner = new Runnable() {
+                public void run() {
+
+                    System.out.println("start cleaning");
+
+                    int clearSize = messagesToSend.size();
+
+                        for (int i = 0; i < clearSize; i++){
+                            if (messagesToSend.get(i).isProceed) {
+                                messagesToSend.remove(i);
+                                System.out.println("messagesToSend.remove(i) : " + String.valueOf(i));
+                            }
+                            System.out.println("current buffer i : " + String.valueOf(i));
+                        }
+
+                    System.out.println("stop cleaning");
+
+                }
+            };
+
+            sesClear.scheduleAtFixedRate(cleaner, 0, 3, TimeUnit.SECONDS);
 
 
             System.out.println("MQTT : издатель сформировался успешно");
