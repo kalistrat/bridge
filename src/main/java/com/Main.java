@@ -44,7 +44,7 @@ public class Main {
             HTTPService httpService = new HTTPService();
             MQTTService mqttService = new MQTTService(httpService);
 
-            ServerSocket server = new ServerSocket(3777, 0,
+            ServerSocket server = new ServerSocket(Integer.parseInt(prop.getProperty("UART_PORT")), 0,
                     InetAddress.getByName("localhost"));
 
 

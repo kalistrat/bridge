@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.security.*;
 import java.security.Certificate;
 import java.security.cert.*;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -40,14 +41,15 @@ public class MQTTService implements MqttCallback {
     MqttConnectOptions mqttOptions;
     List<sensorData> sensorList;
     HTTPService httpService;
-    List<topicMessage> messagesToSend;
+    ArrayDeque<topicMessage> messagesToSend;
+
 
     public MQTTService(HTTPService hService)  {
         try {
 
 
             sensorList  = new ArrayList<>();
-            messagesToSend = new ArrayList<>();
+            messagesToSend = new ArrayDeque<>();
 
             httpService = hService;
             setMqttService();
@@ -348,24 +350,27 @@ public class MQTTService implements MqttCallback {
 
                         writeClient.connect(mqttOptions);
 
-                        System.out.println("writeClient.connect");
+                        //System.out.println("writeClient.connect");
 
                         int sendSize = messagesToSend.size();
 
-                        for (int j = 0; j < sendSize; j++){
-                            if (!messagesToSend.get(j).isProceed) {
+                        if (sendSize > 0) {
+
+                            for (int j = 0; j < sendSize; j++) {
+
+                                topicMessage sendedMesg = messagesToSend.pop();
                                 writeClient.publish(
-                                        messagesToSend.get(j).topic
-                                        , messagesToSend.get(j).mqttMessage
+                                        sendedMesg.topic
+                                        , sendedMesg.mqttMessage
                                 );
-                                messagesToSend.get(j).isProceed = true;
-                                System.out.println("writeClient.publish :" + messagesToSend.get(j).topic + " " + messagesToSend.get(j).mqttMessage);
+                                //System.out.println("publish the message : " + sendedMesg.message);
+
                             }
                         }
 
                         writeClient.disconnect();
 
-                        System.out.println("writeClient.disconnect");
+                        //System.out.println("writeClient.disconnect");
 
 
                     } catch (MqttException e){
@@ -377,32 +382,6 @@ public class MQTTService implements MqttCallback {
             };
 
             sesSend.scheduleAtFixedRate(sender, 0, 1, TimeUnit.SECONDS);
-
-
-            ScheduledExecutorService sesClear = Executors.newScheduledThreadPool(1);
-
-            Runnable cleaner = new Runnable() {
-                public void run() {
-
-                    System.out.println("start cleaning");
-
-                    int clearSize = messagesToSend.size();
-
-                        for (int i = 0; i < clearSize; i++){
-                            if (messagesToSend.get(i).isProceed) {
-                                messagesToSend.remove(i);
-                                System.out.println("messagesToSend.remove(i) : " + String.valueOf(i));
-                            }
-                            System.out.println("current buffer i : " + String.valueOf(i));
-                        }
-
-                    System.out.println("stop cleaning");
-
-                }
-            };
-
-            sesClear.scheduleAtFixedRate(cleaner, 0, 3, TimeUnit.SECONDS);
-
 
             System.out.println("MQTT : издатель сформировался успешно");
 
@@ -428,7 +407,7 @@ public class MQTTService implements MqttCallback {
 
             String val_1 = messValPieces.get(0).replace(" ","");
 
-            messagesToSend.add(
+            messagesToSend.addLast(
                     new topicMessage(
                     getSensor(uid).TOPIC_LIST.get(0).TOPIC_NAME
                     ,new MqttMessage((unixTime + ":" +val_1).getBytes())
@@ -445,7 +424,7 @@ public class MQTTService implements MqttCallback {
     public void createMessageToQueue(String Topic, String messAge){
         try{
 
-            messagesToSend.add(
+            messagesToSend.addLast(
                     new topicMessage(
                             Topic
                             ,new MqttMessage(messAge.getBytes())
