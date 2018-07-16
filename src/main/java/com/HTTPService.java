@@ -3,22 +3,31 @@ package com;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContexts;
 import org.w3c.dom.Document;
 
+import javax.net.ssl.SSLContext;
 import javax.xml.xpath.XPathFactory;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
+import java.security.KeyStore;
 import java.util.stream.Collectors;
+
+
 
 /**
  * Created by kalistrat on 19.04.2018.
  */
 public class HTTPService {
     String webServiceURL;
-    HttpClient httpClient;
+    CloseableHttpClient httpClient;
 
     public HTTPService(){
         try {
@@ -31,12 +40,58 @@ public class HTTPService {
 
     }
 
+
+//    public void setHttpService(){
+//        try {
+//
+//            webServiceURL = Main.prop.getProperty("HTTP_UNIFIED_WS_URL");
+//            httpClient = new DefaultHttpClient();
+//
+//            KeyStore trustStore  = KeyStore.getInstance(KeyStore.getDefaultType());
+//            FileInputStream instream = new FileInputStream(new File(Main.AbsPath + Main.prop.getProperty("HTTP_KEY_STORE_NAME")));
+//            try {
+//                trustStore.load(instream, "888888".toCharArray());
+//            } finally {
+//                instream.close();
+//            }
+//
+//            SSLSocketFactory socketFactory = new SSLSocketFactory(trustStore);
+//            Scheme sch = new Scheme("https", socketFactory, 443);
+//            httpClient.getConnectionManager().getSchemeRegistry().register(sch);
+//
+//
+//            String checkConnection = linkDevice("TEST");
+//            if (checkConnection == null) {
+//                System.out.println("HTTP : центральный веб-сервис " + webServiceURL + " недоступен");
+//                httpClient = null;
+//            } else {
+//                System.out.println("HTTP : соединение с " + webServiceURL + " установлено");
+//            }
+//
+//            //System.out.println("checkConnection : " + checkConnection);
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            System.out.println("HTTP : Ошибка перезапуска службы");
+//            httpClient = null;
+//        }
+//    }
+
     public void setHttpService(){
         try {
 
             webServiceURL = Main.prop.getProperty("HTTP_UNIFIED_WS_URL");
-            httpClient = new DefaultHttpClient();
 
+
+            SSLContext sslContext = SSLContexts.custom()
+                    .loadTrustMaterial((KeyStore)null, new TrustSelfSignedStrategy())
+                    //I had a trust store of my own, and this might not work!
+                    .build();
+
+            httpClient = HttpClients.custom()
+                    .setSSLContext(sslContext)
+                    .setSSLHostnameVerifier(new NoopHostnameVerifier())
+                    .build();
 
             String checkConnection = linkDevice("TEST");
             if (checkConnection == null) {
@@ -46,10 +101,9 @@ public class HTTPService {
                 System.out.println("HTTP : соединение с " + webServiceURL + " установлено");
             }
 
-            //System.out.println("checkConnection : " + checkConnection);
 
         } catch (Exception e) {
-            //e.printStackTrace();
+            e.printStackTrace();
             System.out.println("HTTP : Ошибка перезапуска службы");
             httpClient = null;
         }
